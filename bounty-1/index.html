@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <link
+            href="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.11.7/video-js.min.css"
+            rel="stylesheet"
+        />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/7.11.7/video.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-eme@3.8.0/dist/videojs-contrib-eme.js"></script>
+
+        <!-- Markers Plugin -->
+        <link
+            href="https://unpkg.com/videojs-markers-plugin@1.0.2/dist/videojs.markers.plugin.min.css"
+            rel="stylesheet"
+        />
+        <script
+            src="https://unpkg.com/videojs-markers-plugin@1.0.2/dist/videojs-markers-plugin.min.js"
+            crossorigin="anonymous"
+        ></script>
+
+        <!-- VideoJs Seek Buttons Plugin -->
+        <script src="https://unpkg.com/videojs-seek-buttons/dist/videojs-seek-buttons.min.js"></script>
+
+        <title>Test VideJS DRM</title>
+
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            .video-container {
+                margin: 40px;
+            }
+            .timestamps {
+                font-family: sans-serif;
+                margin: 40px;
+                color: #272727;
+            }
+            .timestamp__heading {
+                font-size: 24px;
+                margin-bottom: 10px;
+            }
+            .timestamps__container {
+                list-style: none;
+                display: flex;
+                flex-direction: column;
+            }
+            .singleTimestamp {
+                display: flex;
+                gap: 10px;
+                align-items: baseline;
+                cursor: pointer;
+                transition: background-color 0.3s;
+                padding: 5px;
+                border-radius: 2px;
+            }
+            .singleTimestamp:hover {
+                background-color: #c9c9c9;
+            }
+            .timestamp--time {
+                font-size: 16px;
+                color: #3474ff;
+            }
+            .timestamp--desc {
+                font-size: 18px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="video-container">
+            <video id="my-video" class="video-js"></video>
+        </div>
+        <div class="timestamps">
+            <h3 class="timestamp__heading">Timestamps</h3>
+            <ul class="timestamps__container"></ul>
+        </div>
+
+        <script>
+            var player = videojs(
+                "my-video",
+                {
+                    controls: true,
+                    fluid: true,
+                    html5: {
+                        vhs: {
+                            overrideNative: true,
+                        },
+                    },
+                },
+                function () {
+                    var player = this;
+                    player.eme();
+                    player.src({
+                        src: "https://cdn.bitmovin.com/content/assets/art-of-motion_drm/mpds/11331.mpd",
+                        type: "application/dash+xml",
+                        keySystems: {
+                            "com.widevine.alpha":
+                                "https://cwip-shaka-proxy.appspot.com/no_auth",
+                        },
+                    });
+
+                    player.ready(function () {
+                        player
+                            .tech(true)
+                            .on("keystatuschange", function (event) {
+                                console.log("event: ", event);
+                            });
+                    });
+                }
+            );
+
+            // Segments array: Stores two properties: time & text
+            // time: This property stores the time in seconds by converting the timestamp from Hours:Minutes:Seconds
+            // text: Description of that timestamp
+            const segments = [
+                {
+                    time: "0.0.0",
+                    text: "Man having a drink",
+                },
+                {
+                    time: "0.0.07",
+                    text: "Lady asking what is Parkor?",
+                },
+                {
+                    time: "0.0.23",
+                    text: "Redbull entry",
+                },
+                {
+                    time: "0.0.32",
+                    text: "Atheletes interview with some Parkor action!",
+                },
+                {
+                    time: "0.3.07",
+                    text: "Prize distribution",
+                },
+            ];
+
+            player.markers({
+                // Custome CSS for markers
+                markerStyle: {
+                    width: "8px",
+                    "border-radius": "100%",
+                    "background-color": "#08a3fc",
+                },
+                // Shows the text on hover of marker
+                markerTip: {
+                    display: true,
+                    text: function (marker) {
+                        return marker.text;
+                    },
+                },
+                // Accepts an array of objects: {time, text}
+                markers: segments.map((segment) => ({
+                    time: convertTimestampToSeconds(segment.time),
+                    text: segment.text,
+                })),
+            });
+
+            // Initializing VideoJs Seek Buttons Plugin
+            player.seekButtons();
+
+            // Selcting segments container UL element
+            const segmentsContainer = document.querySelector(
+                ".timestamps__container"
+            );
+
+            // Appending all the segments in the conatiner
+            segments.forEach(function (segment) {
+                const singleTimestamp = document.createElement("li");
+                singleTimestamp.classList.add("singleTimestamp");
+                segmentsContainer.appendChild(singleTimestamp);
+
+                const timestampTime = document.createElement("span");
+                timestampTime.classList.add("timestamp--time");
+                timestampTime.textContent = segment.time;
+                singleTimestamp.appendChild(timestampTime);
+
+                const timestampText = document.createElement("span");
+                timestampText.classList.add("timestamp--text");
+                timestampText.textContent = segment.text;
+                singleTimestamp.appendChild(timestampText);
+
+                singleTimestamp.addEventListener("click", function () {
+                    scrollToSegment(convertTimestampToSeconds(segment.time));
+                });
+            });
+
+            // Function of letting user to scroll to the choosen segment
+            function scrollToSegment(segment) {
+                player.currentTime(segment);
+                player.play();
+            }
+
+            // A simple function to convert timestamp in Hour:Minute:Seconds format into seconds
+            function convertTimestampToSeconds(timestamp) {
+                const [hours, minutes, seconds] = timestamp
+                    .split(".")
+                    .map(Number);
+                return hours * 3600 + minutes * 60 + seconds;
+            }
+        </script>
+    </body>
+</html>
